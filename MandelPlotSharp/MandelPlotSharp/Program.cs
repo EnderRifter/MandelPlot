@@ -3,6 +3,8 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Runtime.Intrinsics;
+using System.Xml;
 
 namespace MandelPlotSharp
 {
@@ -12,15 +14,20 @@ namespace MandelPlotSharp
 
         private const int Height = 8192, Width = 8192;
 
-        private const int Iterations = 100, BreakoutValue = 4;
+        private const int Iterations = 1000, BreakoutValue = 1 << 16;
 
-        private static void Main(string[] args)
+        private const int PaletteSize = 500;
+
+        private static readonly int[] ColourPalette;
+
+        static Program()
         {
-            Console.WriteLine("Hello World!");
+            ColourPalette = new int[PaletteSize];
 
-            DrawMandelbrotSingleThreaded();
-
-            DrawMandelbrotMultiThreaded();
+            for (int i = 0; i < PaletteSize; i++)
+            {
+                // TODO: implement palette
+            }
         }
 
         private static unsafe void DrawMandelbrotSingleThreaded()
@@ -62,18 +69,30 @@ namespace MandelPlotSharp
                     /* Paint into bmp */
                     byte* pixel = rootBmpPixelPart + (i * bitsPerPixel / 8) + (j * data.Stride);
 
+                    /*
+                     * float l = mandelbrot(c);
+                     * vec3 colour = 0.5 + 0.5*cos(3.0 + l*0.15 + vec3(0.0, 0.6, 1.0));
+                     */
+
+                    double iters = k;
+
                     if (k < Iterations)  // we broke out early, colour some fancy colour ;)
                     {
-                        pixel[0] = 255;
-                        pixel[1] = 255;
-                        pixel[2] = 255;
+                        double tPixelR = 0.5 + 0.5 * Math.Cos(3.0 + iters * 0.15 + 0.0);
+                        double tPixelG = 0.5 + 0.5 * Math.Cos(3.0 + iters * 0.15 + 0.6);
+                        double tPixelB = 0.5 + 0.5 * Math.Cos(3.0 + iters * 0.15 + 1.0);
+
+                        pixel[0] = (byte)(255 - tPixelR);
+                        pixel[1] = (byte)(255 - tPixelG);
+                        pixel[2] = (byte)(255 - tPixelB);
                     }
-                    else  // point is in set, colour a boring black :(
-                    {
-                        pixel[0] = 0;
-                        pixel[1] = 0;
-                        pixel[2] = 0;
-                    }
+
+                    /* Pick colour and lerp into final colour */
+                    int paletteColourA = ColourPalette[k], paletteColourB = ColourPalette[k + 1];
+
+                    pixel[0] = 0;
+                    pixel[1] = 0;
+                    pixel[2] = 0;
                 }
             }
 
@@ -83,6 +102,13 @@ namespace MandelPlotSharp
             bmp.UnlockBits(data);
 
             bmp.Save(Path.GetFullPath(FileName));
+        }
+
+        private static void Main(string[] args)
+        {
+            Console.WriteLine("Hello World!");
+
+            DrawMandelbrotSingleThreaded();
         }
     }
 }
